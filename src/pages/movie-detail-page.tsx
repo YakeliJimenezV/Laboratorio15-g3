@@ -1,5 +1,6 @@
 import { useParams } from "react-router-dom";
-import { Heart, Star } from "lucide-react";
+import { useState } from "react";
+import { Heart, Star, Ticket } from "lucide-react";
 
 import PageContainer from "@/components/layout/page-container";
 import { Badge } from "@/components/ui/badge";
@@ -7,17 +8,25 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useMovieDetail } from "@/hooks/use-movie-detail";
 import { useFavoritesStore } from "@/store/use-favorites-store";
+import { usePurchasesStore } from "@/store/use-purchases-store";
 import { getBackdropUrl, getPosterUrl } from "@/lib/tmdb-image";
+import { formatCurrency, getTicketPrice } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
+import { PurchaseDialog } from "@/components/purchase/purchase-dialog";
 
 export function MovieDetailPage() {
   const { movieId } = useParams<{ movieId: string }>();
   const { data: movie, isLoading, isError } = useMovieDetail(movieId);
+  const [isPurchaseOpen, setIsPurchaseOpen] = useState(false);
 
   const isFavorite = useFavoritesStore((state) =>
     movie ? state.isFavorite(movie.id) : false
   );
   const toggleFavorite = useFavoritesStore((state) => state.toggleFavorite);
+
+  const hasPurchased = usePurchasesStore((state) =>
+    movie ? state.hasPurchased(movie.id) : false
+  );
 
   if (isLoading) {
     return (
@@ -59,7 +68,7 @@ export function MovieDetailPage() {
       </div>
 
       <PageContainer>
-        <div className="-mt-32 grid grid-cols-1 gap-8 pb-16 sm:grid-cols-[240px_1fr]">
+        <div className="relative z-10 -mt-32 grid grid-cols-1 gap-8 pb-16 sm:grid-cols-[240px_1fr]">
           <img
             src={getPosterUrl(movie.poster_path)}
             alt={movie.title}
@@ -79,18 +88,32 @@ export function MovieDetailPage() {
                 )}
               </div>
 
-              <Button
-                variant={isFavorite ? "default" : "outline"}
-                onClick={() => toggleFavorite(movie.id)}
-              >
-                <Heart
-                  className={cn(
-                    "mr-2 h-4 w-4",
-                    isFavorite && "fill-current"
-                  )}
-                />
-                {isFavorite ? "In favorites" : "Add to favorites"}
-              </Button>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  variant={isFavorite ? "default" : "outline"}
+                  onClick={() => toggleFavorite(movie.id)}
+                >
+                  <Heart
+                    className={cn(
+                      "mr-2 h-4 w-4",
+                      isFavorite && "fill-current"
+                    )}
+                  />
+                  {isFavorite ? "In favorites" : "Add to favorites"}
+                </Button>
+
+                <Button
+                  variant={hasPurchased ? "outline" : "default"}
+                  onClick={() => setIsPurchaseOpen(true)}
+                >
+                  <Ticket className="mr-2 h-4 w-4" />
+                  {hasPurchased
+                    ? "Comprar otra entrada"
+                    : `Comprar entrada · ${formatCurrency(
+                        getTicketPrice(movie.id)
+                      )}`}
+                </Button>
+              </div>
             </div>
 
             <div className="mt-4 flex flex-wrap items-center gap-3">
@@ -132,6 +155,12 @@ export function MovieDetailPage() {
           </div>
         </div>
       </PageContainer>
+
+      <PurchaseDialog
+        movie={movie}
+        open={isPurchaseOpen}
+        onOpenChange={setIsPurchaseOpen}
+      />
     </div>
   );
 }
